@@ -1299,6 +1299,15 @@ public class FormController implements UIElementEventHandler
         // informiert.
         formModel.valueChanged(source.getId(), source.getString());
 
+        // jetzt auch noch eine Benachrichtigung zum ausgewählten Index, falls wir
+        // ein Element mit Auswahlmöglichkeit haben
+        if(source.getSelectedIndex() != null)
+        {
+          int index = source.getSelectedIndex();
+          formModel.valueChanged("INDEX" + source.getId(),
+            (index == -1) ? "undefined" : "" + index);
+        }
+
         Set<UIElement> todo = new HashSet<UIElement>();
         todo.add(source);
         /*
