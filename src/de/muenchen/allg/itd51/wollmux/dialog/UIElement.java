@@ -182,17 +182,6 @@ public interface UIElement extends Value
    */
   public String getId();
 
-  
-  /**
-   * Liefert bei UIElements, die mehrere feste Auswahlmöglichkeiten (z.B. Combobox)
-   * besitzen, den Wert der gleichnamigen Methode z.B.
-   * {@link Combobox#getSelectedIndex()} zurück, oder null, wenn das Element keine
-   * Auswahlmöglichkeit besitzt.
-   * 
-   * @author Christoph Lutz (CIB software GmbH)
-   */
-  public Integer getSelectedIndex();
-  
   /**
    * Setzt eine neue Hintergrundfarbe für das UIElement.
    */
@@ -324,13 +313,6 @@ public interface UIElement extends Value
     {
       getComponent().requestFocusInWindow();
     }
-
-    public Integer getSelectedIndex()
-    {
-      return null;
-    }
-    
-    
   }
 
   public static class Label extends UIElementBase
@@ -504,12 +486,6 @@ public interface UIElement extends Value
     {
       return false;
     }
-
-    @Override
-    public Integer getSelectedIndex()
-    {
-      return Integer.valueOf(combo.getSelectedIndex());
-    }
   }
 
   public static class Listbox extends UIElementBase
@@ -637,11 +613,6 @@ public interface UIElement extends Value
     public boolean isStatic()
     {
       return false;
-    }
-
-    public Integer getSelectedIndex()
-    {
-      return Integer.valueOf(list.getSelectedIndex());
     }
   }
 
