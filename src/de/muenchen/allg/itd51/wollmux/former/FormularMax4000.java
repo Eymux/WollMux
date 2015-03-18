@@ -247,8 +247,9 @@ public class FormularMax4000
    * "<<Freitext>>" eingetragen werden und signalisiert dem FM4000, dass die ComboBox
    * im Formular auch die Freitexteingabe erlauben soll. Wie bei Eingabefeldern auch
    * ist die Angabe "<<ID>>" ohne Label möglich und signalisiert, dass es sich um
-   * eine reine Einfügestelle handelt, die kein Formularelement erzeugen soll. Wird
-   * als "Name" die Spezialsyntax "<<gender:ID>>" verwendet, so wird eine reine
+   * eine reine Einfügestelle handelt, die kein Formularelement erzeugen soll.
+   * 
+   * Wird als "Name" die Spezialsyntax "<<gender:ID>>" verwendet, so wird eine reine
    * Einfügestelle erzeugt, die mit einer Gender-TRAFO versehen wird, die abhängig
    * vom Formularfeld ID einen der Werte des Dropdowns auswählt, und zwar bei "Herr"
    * oder "Herrn" den ersten Eintrag, bei "Frau" den zweiten Eintrag und bei allem
@@ -258,6 +259,9 @@ public class FormularMax4000
    * wobei N die Anzahl der Einträge ist, die bis auf folgende Leerzeichen identisch
    * zu diesem Eintrag sind. Dies ermöglicht es, das selbe Wort mehrfach in die Liste
    * aufzunehmen.
+   * 
+   * Außerdem gibt es die Schlüssel "<<glob:ID>>" und "<<select:ID>>", diese sind im
+   * WollMux-Wiki beschieben.
    * 
    * >>>>>Checkbox<<<<<: Bei Checkboxen kann als "Hilfetext" "Label<<ID>>" angegeben
    * werden und wird beim Import entsprechend berücksichtigt.
@@ -280,6 +284,12 @@ public class FormularMax4000
    * dass ein insertFormValue mit Gender-TRAFO erzeugt werden soll.
    */
   private static final String GENDER_PREFIX = "gender:";
+
+  /**
+   * Präfix zur Markierung von IDs der magischen Deskriptor-Syntax um anzuzeigen,
+   * dass ein insertFormValue mit SELECT-TRAFO erzeugt werden soll.
+   */
+  private static final String SELECT_PREFIX = "select:";
 
   /**
    * Der {@link IDManager}-Namensraum für die IDs von {@link FormControlModel}s.
@@ -1540,8 +1550,51 @@ public class FormularMax4000
       catch (Exception x)
       {}
       DocumentTree tree = new DocumentTree(doc);
-      Visitor visitor = new ScanVisitor();
+      List<DependentFormControl> dependentFormControls = new Vector<DependentFormControl>();
+      
+      // Hier läuft der Visitor alle Elemente des Dokuments in Dokumentreihenfolge durch
+      Visitor visitor = new ScanVisitor(dependentFormControls);
       visitor.visit(tree);
+
+      // Manche Controls (aktuell SELECT_COMBOBOXs) sind von anderen Controls
+      // abhängig. Erst hier, nach dem Durchlauf des kompletten Dokuments müssen
+      // diese anderen Elemente dem FM4000 bekannt sein. Wir können jetzt die
+      // abhängigen Elemente weiter bearbeiten.
+      for (DependentFormControl dep : dependentFormControls)
+      {
+        switch (dep.getType())
+        {
+          case SELECT_COMBOBOX:
+          {
+            ID id = idManager.getID(NAMESPACE_FORMCONTROLMODEL, dep.getId());
+            FormControlModel mainFormControl = null;
+            for(FormControlModel model : formControlModelList)
+            {
+              if(model.getId().equals(id)) mainFormControl = model;
+            }
+            
+            if(mainFormControl != null) 
+            {
+              addSelectTrafo(dep.getImodel(), (DropdownFormControl) dep.getControl(),
+                mainFormControl.getItems());
+            }
+            else
+            {
+              // TODO: überlegen, was das beste Verhalten ist
+              Logger.error(L.m(
+                "Kann das für DependentFormControl benötige FormControl nicht auflösen!",
+                dep.getType().toString()));
+            }
+            
+            break;
+          }
+          default:
+            Logger.error(L.m(
+              "Typ %1 des DependentFormControls wird nicht verarbeitet!",
+              dep.getType().toString()));
+            break;
+        }
+      }
     }
     catch (Exception x)
     {
@@ -1561,6 +1614,14 @@ public class FormularMax4000
     private StringBuilder fixupText = new StringBuilder();
 
     private FormControlModel fixupCheckbox = null;
+
+    private List<DependentFormControl> dependentFormControls = null; 
+    
+    public ScanVisitor(List<DependentFormControl> dependentFormControls)
+    {
+      super();
+      this.dependentFormControls = dependentFormControls;
+    }
 
     private void fixup()
     {
@@ -1606,7 +1667,7 @@ public class FormularMax4000
 
       if (insertions.isEmpty())
       {
-        FormControlModel model = registerFormControl(control, text);
+        FormControlModel model = registerFormControl(control, text, dependentFormControls);
         if (model != null && model.getType() == FormControlModel.CHECKBOX_TYPE)
           fixupCheckbox = model;
       }
@@ -1615,6 +1676,52 @@ public class FormularMax4000
     }
   }
 
+  private static enum DependentFormControlType
+  {
+    SELECT_COMBOBOX;
+  }
+  
+  private static class DependentFormControl
+  {
+    String id;
+
+    DependentFormControlType type;
+
+    FormControl control;
+    
+    InsertionModel imodel;
+
+    public DependentFormControl(String id, DependentFormControlType type,
+        FormControl control, InsertionModel imodel)
+    {
+      super();
+      this.id = id;
+      this.type = type;
+      this.control = control;
+      this.imodel = imodel;
+    }
+
+    public String getId()
+    {
+      return id;
+    }
+
+    public DependentFormControlType getType()
+    {
+      return type;
+    }
+
+    public FormControl getControl()
+    {
+      return control;
+    }
+
+    public InsertionModel getImodel()
+    {
+      return imodel;
+    } 
+  }
+  
   /**
    * Fügt der {@link #formControlModelList} ein neues {@link FormControlModel} hinzu
    * für das {@link de.muenchen.allg.itd51.wollmux.former.DocumentTree.FormControl}
@@ -1631,7 +1738,7 @@ public class FormularMax4000
    * @author Matthias Benkmann (D-III-ITD 5.1)
    */
   private FormControlModel registerFormControl(FormControl control,
-      StringBuilder text)
+      StringBuilder text, List<DependentFormControl> dependentFormControls)
   {
     boolean insertionOnlyNoLabel = false;
     String label = "";
@@ -1678,21 +1785,29 @@ public class FormularMax4000
     }
 
     boolean doGenderTrafo = false;
+    boolean doSelectTrafo = false;
 
     String bookmarkName = insertFormValue(id);
     if (insertionOnlyNoLabel)
     {
-      if (id.startsWith(GLOBAL_PREFIX))
+      if (id.toLowerCase().startsWith(GLOBAL_PREFIX))
       {
         id = id.substring(GLOBAL_PREFIX.length());
         bookmarkName = insertValue(id);
       }
-      else if (id.startsWith(GENDER_PREFIX))
+      else if (id.toLowerCase().startsWith(GENDER_PREFIX))
       {
         id = id.substring(GENDER_PREFIX.length());
         bookmarkName = insertFormValue(id);
         if (control.getType() == DocumentTree.DROPDOWN_CONTROL)
           doGenderTrafo = true;
+      }
+      else if (id.toLowerCase().startsWith(SELECT_PREFIX))
+      {
+        id = id.substring(SELECT_PREFIX.length());
+        bookmarkName = insertFormValue(id);
+        if (control.getType() == DocumentTree.DROPDOWN_CONTROL)
+          doSelectTrafo = true;
       }
     }
 
@@ -1703,7 +1818,25 @@ public class FormularMax4000
       InsertionModel imodel =
         new InsertionModel4InsertXValue(bookmarkName,
           UNO.XBookmarksSupplier(doc.doc), functionSelectionProvider, this);
-      if (doGenderTrafo) addGenderTrafo(imodel, (DropdownFormControl) control);
+      if (doGenderTrafo)
+      {
+        addGenderTrafo(imodel, (DropdownFormControl) control);
+      }
+      else if (doSelectTrafo) 
+      {
+        // Dieses FormControl hängt von dem FormControl ab, in dem die für den
+        // Benutzer wählbaren Einträge definiert sind (üblicherweise auch ein
+        // Dropdown-Feld). Wir können an dieser Stelle nicht davon ausgehen, dass
+        // das benötigte FormControl schon bekannt ist und vergeben daher für dieses
+        // "<<select:...>>"-FormControl zunächst eine Dummy-Funktion, die wir später
+        // füllen werden. Wir fügen das FormControl für die spätere Bearbeitung der
+        // Liste dependentFormControls hinzu.
+        FunctionSelection selectTrafo = new FunctionSelection();
+        selectTrafo.setExpertFunction(new ConfigThingy("dummy"));
+        imodel.setTrafo(selectTrafo);
+        dependentFormControls.add(new DependentFormControl(id,
+          DependentFormControlType.SELECT_COMBOBOX, control, imodel));
+      }
       insertionModelList.add(imodel);
     }
     catch (Exception x)
@@ -1729,35 +1862,107 @@ public class FormularMax4000
 
     for (int i = 0; i < 3 && i < items.length; ++i)
     {
-      String item = items[i];
-
-      /*
-       * Bestimme die maximal am Ende des Eintrags zu entfernende Anzahl Leerzeichen.
-       * Dies ist die Anzahl an Einträgen, die bis auf folgende Leerzeichen identisch
-       * sind MINUS 1.
-       */
-      String item1 = item;
-      while (item1.endsWith(" "))
-        item1 = item1.substring(0, item1.length() - 1);
-      int n = 0;
-      for (int j = 0; j < items.length; ++j)
-      {
-        String item2 = items[j];
-        while (item2.endsWith(" "))
-          item2 = item2.substring(0, item2.length() - 1);
-        if (item1.equals(item2)) ++n;
-      }
-
-      // bis zu N-1 Leerzeichen am Ende löschen, um mehrere gleiche Einträge zu
-      // erlauben.
-      for (; n > 1 && item.endsWith(" "); --n)
-        item = item.substring(0, item.length() - 1);
+      String item = removeTrailingSpaces(items[i], items);
       genderTrafo.setParameterValue(GENDER_TRAFO_PARAMS[i], ParamValue.literal(item));
     }
 
     model.setTrafo(genderTrafo);
   }
 
+  /**
+   * Verpasst model eine Select-TRAFO, die die Elemente der mainItems-Liste auf die
+   * in dependentControl vorhandenen Werte mapped.
+   * 
+   * @author Christoph Lutz (CIB software GmbH), Simona Loi (I23)
+   */
+  private void addSelectTrafo(InsertionModel model, DropdownFormControl dependentControl,
+      List<String> mainItems)
+  {
+    String[] mainItemsArray = new String[mainItems.size()];
+    mainItems.toArray(mainItemsArray);
+    String[] dependentItems = dependentControl.getItems();
+    FunctionSelection selectTrafo = new FunctionSelection();
+
+    ConfigThingy selectFuncConf = new ConfigThingy("select function");
+    ConfigThingy selectConf = new ConfigThingy("SELECT");
+
+    int i = 0;
+    for (String mainItem : mainItems)
+    {
+      String dependentItem;
+      if (dependentItems.length > i)
+        dependentItem = dependentItems[i];
+      else
+        break;
+      
+      mainItem = removeTrailingSpaces(mainItem, mainItemsArray);
+      dependentItem = removeTrailingSpaces(dependentItem, dependentItems);
+      
+      ConfigThingy ifConf = new ConfigThingy("IF");
+      ConfigThingy strcmpConf = new ConfigThingy("STRCMP");
+      ConfigThingy valueConf = new ConfigThingy("VALUE");
+      valueConf.add("INPUT");
+      strcmpConf.addChild(valueConf);
+      strcmpConf.add(mainItem);
+      ifConf.addChild(strcmpConf);
+      ConfigThingy thenConf = new ConfigThingy(dependentItem);
+      ifConf.addChild(thenConf);
+
+      selectConf.addChild(ifConf);
+      i++;
+    }
+    
+    ConfigThingy elseConf = new ConfigThingy("ELSE");
+    if (dependentItems.length > i) 
+    {
+      String dependentItem = dependentItems[i];
+      dependentItem = removeTrailingSpaces(dependentItem, dependentItems);
+      elseConf.add(dependentItem);
+    }
+    else
+    {
+      elseConf.add(Function.ERROR);
+    }
+    selectConf.addChild(elseConf);
+
+    selectFuncConf.addChild(selectConf);
+    selectTrafo.setExpertFunction(selectFuncConf);    
+    model.setTrafo(selectTrafo);
+  }
+
+  /**
+   * Wenn es in allItems gleichnamig benannte Elemente gibt, entfernen wir von dem
+   * übergebenen item die hinteren Leerzeichen. Mit dieser Logik ermöglichen wir es,
+   * in ComboBoxen mehrere gleiche Werte einzutragen, die (da die Combobox das so
+   * vorschreibt) jedoch mit abschließenden Leerzeichen aufgefüllt sind, damit sie
+   * in der ComboBox selbst unterschieden werden können.
+   */
+  private static String removeTrailingSpaces(String item, String[] allItems)
+  {
+    /*
+     * Bestimme die maximal am Ende des Eintrags zu entfernende Anzahl Leerzeichen.
+     * Dies ist die Anzahl an Einträgen, die bis auf folgende Leerzeichen identisch
+     * sind MINUS 1.
+     */
+    String item1 = item;
+    while (item1.endsWith(" "))
+      item1 = item1.substring(0, item1.length() - 1);
+    int n = 0;
+    for (int j = 0; j < allItems.length; ++j)
+    {
+      String item2 = allItems[j];
+      while (item2.endsWith(" "))
+        item2 = item2.substring(0, item2.length() - 1);
+      if (item1.equals(item2)) ++n;
+    }
+    
+    // bis zu N-1 Leerzeichen am Ende löschen, um mehrere gleiche Einträge zu
+    // erlauben.
+    for (; n > 1 && item.endsWith(" "); --n)
+      item = item.substring(0, item.length() - 1);
+    return item;
+  }
+  
   /**
    * Bastelt aus dem Ende des Textes text ein Label das maximal maxlen Zeichen lang
    * ist.
@@ -1931,15 +2136,20 @@ public class FormularMax4000
     if (insertionOnlyNoLabel)
     {
       String prefix = "";
-      if (str.startsWith(GLOBAL_PREFIX))
+      if (str.toLowerCase().startsWith(GLOBAL_PREFIX))
       {
         prefix = GLOBAL_PREFIX;
         str = str.substring(GLOBAL_PREFIX.length());
       }
-      else if (str.startsWith(GENDER_PREFIX))
+      else if (str.toLowerCase().startsWith(GENDER_PREFIX))
       {
         prefix = GENDER_PREFIX;
         str = str.substring(GENDER_PREFIX.length());
+      }
+      else if (str.toLowerCase().startsWith(SELECT_PREFIX))
+      {
+        prefix = SELECT_PREFIX;
+        str = str.substring(SELECT_PREFIX.length());
       }
       str = str.replaceAll("[^a-zA-Z_0-9]", "");
       if (str.length() == 0) str = "Einfuegung";
