@@ -90,12 +90,6 @@ public class InsertionModel4InsertXValue extends InsertionModel
     DocumentCommands.getPatternForCommand("((insertValue)|(insertFormValue))");
 
   /**
-   * Attribut-ID-Konstante für
-   * {@link ModelChangeListener#attributeChanged(InsertionModel, int, Object)}.
-   */
-  public static final int ID_ATTR = 0;
-
-  /**
    * Konstante für {@link #sourceType}, die angibt, dass die Daten für die Einfügung
    * aus einer externen Datenquelle kommen (insertValue).
    */
@@ -356,7 +350,7 @@ public class InsertionModel4InsertXValue extends InsertionModel
           newId);
       dataId.addIDChangeListener(myIDChangeListener);
     }
-    notifyListeners(ID_ATTR, dataId);
+    notifyListeners(InsertionModel.Attribute.ID, dataId);
     // formularMax4000.documentNeedsUpdating(); ist bereits in notifyListeners
   }
 
@@ -412,7 +406,7 @@ public class InsertionModel4InsertXValue extends InsertionModel
           id.toString()));
         return;
       }
-      notifyListeners(ID_ATTR, dataId);
+      notifyListeners(InsertionModel.Attribute.ID, dataId);
       // formularMax4000.documentNeedsUpdating(); ist bereits in notifyListeners
     }
   }

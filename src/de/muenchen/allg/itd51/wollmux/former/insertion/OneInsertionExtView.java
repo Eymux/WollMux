@@ -112,7 +112,7 @@ public class OneInsertionExtView implements View
       if (bigDaddy != null) bigDaddy.viewShouldBeRemoved(OneInsertionExtView.this);
     }
 
-    public void attributeChanged(InsertionModel model, int attributeId,
+    public void attributeChanged(InsertionModel model, InsertionModel.Attribute attribute,
         Object newValue)
     {}
   }

@@ -116,16 +116,14 @@ public abstract class InsertionModel
 
   /**
    * Setzt die TRAFO auf trafo, wobei das Objekt direkt übernommen (nicht kopiert)
-   * wird. ACHTUNG! Derzeit verständigt diese Funktion keine ModelChangeListener,
-   * d.h. Änderungen an diesem Attribut werden nicht im FM4000 propagiert. Diese
-   * Funktion kann also derzeit nur sinnvoll auf einem frischen InsertionModel
-   * verwendet werden, bevor es zur insertionModelList hinzugefügt wird.
+   * wird.
    * 
-   * @author Matthias Benkmann (D-III-ITD 5.1)
+   * @author Matthias Benkmann (D-III-ITD 5.1), Christoph Lutz (CIB software GmbH)
    */
   public void setTrafo(FunctionSelection trafo)
   {
     this.trafo = trafo;
+    notifyListeners(Attribute.TRAFO, getTrafoAccess());
     formularMax4000.documentNeedsUpdating();
   }
 
@@ -177,18 +175,23 @@ public abstract class InsertionModel
     formularMax4000.documentNeedsUpdating();
   }
 
+  public static enum Attribute
+  {
+    ID, TRAFO;
+  }
+  
   /**
    * Ruft für jeden auf diesem Model registrierten {@link ModelChangeListener} die
    * Methode
    * {@link ModelChangeListener#attributeChanged(InsertionModel, int, Object)} auf.
    */
-  protected void notifyListeners(int attributeId, Object newValue)
+  protected void notifyListeners(Attribute attribute, Object newValue)
   {
     Iterator<ModelChangeListener> iter = listeners.iterator();
     while (iter.hasNext())
     {
       ModelChangeListener listener = iter.next();
-      listener.attributeChanged(this, attributeId, newValue);
+      listener.attributeChanged(this, attribute, newValue);
     }
     formularMax4000.documentNeedsUpdating();
   }
@@ -291,7 +294,7 @@ public abstract class InsertionModel
      *          übergeben.
      * @author Matthias Benkmann (D-III-ITD 5.1)
      */
-    public void attributeChanged(InsertionModel model, int attributeId,
+    public void attributeChanged(InsertionModel model, InsertionModel.Attribute attribute,
         Object newValue);
 
     /**

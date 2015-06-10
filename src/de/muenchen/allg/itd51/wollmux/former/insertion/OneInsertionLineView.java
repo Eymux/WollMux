@@ -221,13 +221,13 @@ public class OneInsertionLineView extends LineView
       bigDaddy.viewShouldBeRemoved(OneInsertionLineView.this);
     }
 
-    public void attributeChanged(InsertionModel model, int attributeId,
+    public void attributeChanged(InsertionModel model, InsertionModel.Attribute attribute,
         Object newValue)
     {
       if (ignoreAttributeChanged) return;
-      switch (attributeId)
+      switch (attribute)
       {
-        case InsertionModel4InsertXValue.ID_ATTR:
+        case ID:
           idChangedDueToExternalReasons((IDManager.ID) newValue);
           break;
       }

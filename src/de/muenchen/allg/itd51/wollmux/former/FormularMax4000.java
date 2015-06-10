@@ -1832,7 +1832,9 @@ public class FormularMax4000
         // füllen werden. Wir fügen das FormControl für die spätere Bearbeitung der
         // Liste dependentFormControls hinzu.
         FunctionSelection selectTrafo = new FunctionSelection();
-        selectTrafo.setExpertFunction(new ConfigThingy("dummy"));
+        ConfigThingy dummyConf = new ConfigThingy("dummy");
+        dummyConf.add(Function.ERROR);
+        selectTrafo.setExpertFunction(dummyConf);
         imodel.setTrafo(selectTrafo);
         dependentFormControls.add(new DependentFormControl(id,
           DependentFormControlType.SELECT_COMBOBOX, control, imodel));
@@ -1905,7 +1907,8 @@ public class FormularMax4000
       strcmpConf.addChild(valueConf);
       strcmpConf.add(mainItem);
       ifConf.addChild(strcmpConf);
-      ConfigThingy thenConf = new ConfigThingy(dependentItem);
+      ConfigThingy thenConf = new ConfigThingy("THEN");
+      thenConf.addChild(new ConfigThingy(dependentItem));
       ifConf.addChild(thenConf);
 
       selectConf.addChild(ifConf);
