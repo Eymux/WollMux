@@ -1601,7 +1601,7 @@ public class FormularMax4000
       Logger.error(L.m("Fehler während des Scan-Vorgangs"), x);
     }
 
-    documentNeedsUpdating();    
+    documentNeedsUpdating();
   }
 
   private class ScanVisitor extends DocumentTree.Visitor
@@ -1831,15 +1831,11 @@ public class FormularMax4000
         // "<<select:...>>"-FormControl zunächst eine Dummy-Funktion, die wir später
         // füllen werden. Wir fügen das FormControl für die spätere Bearbeitung der
         // Liste dependentFormControls hinzu.
-        
         FunctionSelection selectTrafo = new FunctionSelection();
-        ConfigThingy dummy = new ConfigThingy("dummy");
-        dummy.add("DummyText");
-        selectTrafo.setExpertFunction(dummy);
+        selectTrafo.setExpertFunction(new ConfigThingy("dummy"));
         imodel.setTrafo(selectTrafo);
         dependentFormControls.add(new DependentFormControl(id,
           DependentFormControlType.SELECT_COMBOBOX, control, imodel));
-        return model;
       }
       insertionModelList.add(imodel);
     }
@@ -1932,7 +1928,6 @@ public class FormularMax4000
     selectFuncConf.addChild(selectConf);
     selectTrafo.setExpertFunction(selectFuncConf);    
     model.setTrafo(selectTrafo);
-    insertionModelList.add(model);
   }
 
   /**
